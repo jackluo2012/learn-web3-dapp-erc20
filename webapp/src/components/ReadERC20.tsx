@@ -33,14 +33,39 @@ export default function ReadERC20(props:Props){
           useEffect(()=>{
             if(!window.ethereum) return
             if(!currentAccount) return
-        
+            
             queryTokenBalance(window)
+            
+            const provider = new ethers.providers.Web3Provider(window.ethereum)
+            const erc20 = new ethers.Contract(addressContract, abi, provider);
+
+            // listen for changes on an Ethereum address
+            // 监听 区块变化
+            //https://docs.ethers.org/v5/getting-started/#getting-started--contracts
+            console.log(`listening for Transfer...`)
+            const formMe = erc20.filters.Transfer(currentAccount,null)
+            provider.on(formMe,(from,to,amount,event)=>{
+                //let formatAmount = ethers.utils.formatEther(amount) 
+                console.log('from=>',from,'to=>',to,'amount=>',amount)
+                console.log(`I got ${amount} from ${ from }.`);
+                queryTokenBalance(window)
+            })
+            const toMe = erc20.filters.Transfer(null, currentAccount)
+            provider.on(toMe, (from, to, amount, event) => {
+                console.log('Transfer|received', { from, to, amount, event })
+                queryTokenBalance(window)
+            })
+            // remove listener when the component is unmounted
+            return ()=>{
+                provider.removeAllListeners(formMe)
+                provider.removeAllListeners(toMe)
+            }
           },[currentAccount])
           
           async function queryTokenBalance(window:any){
             const provider = new ethers.providers.Web3Provider(window.ethereum)
             const erc20 = new ethers.Contract(addressContract, abi, provider);
-        
+                    
             erc20.balanceOf(currentAccount)
             .then((result:string)=>{
                 SetBalance(Number(ethers.utils.formatEther(result)))
